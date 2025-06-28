@@ -1,0 +1,8 @@
+post https://ij94m4qgfd.execute-api.us-east-1.amazonaws.com/dev/start
+Content-Type: application/json
+
+{
+  "name": "John Doe",
+  "age": 30,  
+  "city": "New York"
+}

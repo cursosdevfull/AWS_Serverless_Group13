@@ -1,0 +1,37 @@
+org: sergiohidalgocaceres
+app: cursosdev
+
+service: lambda-invoke
+
+provider:
+  name: aws
+  runtime: nodejs22.x
+  stage: ${opt:stage, "dev"}
+  iam: 
+    role:
+      statements:
+        - Action: lambda:InvokeFunction
+          Effect: Allow
+          Resource: "arn:aws:lambda:*:*:function:*"
+
+build:
+  esbuild:
+    bundle: true
+    minify: true
+    exclude:
+      - "@aws-sdk/*"
+
+functions:
+  register-user:
+    handler: src/index.handler
+    environment:
+      FUNCTION_NAME_INVOKE: !Ref SendDashemailLambdaFunction
+    events:
+      - http:
+          path: /user
+          method: post
+    
+
+  send-email:
+    handler: src/util/email.handler
+  

@@ -1,0 +1,19 @@
+org: sergiohidalgocaceres
+app: cursosdev
+
+service: registration-users
+
+provider:
+  name: aws
+  architecture: x86_64
+
+build:
+  esbuild:
+    bundle: true
+    minify: true
+    exclude:
+      - "@aws-sdk/*"
+
+functions:
+  myFirstApp:
+    handler: my-function.greet

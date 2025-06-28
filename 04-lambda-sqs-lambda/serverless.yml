@@ -1,0 +1,50 @@
+org: sergiohidalgocaceres
+app: cursosdev
+
+service: lambda-sqs-lambda
+
+provider:
+  name: aws
+  runtime: nodejs22.x
+  stage: ${opt:stage, "dev"}
+  iam:
+    role:
+      statements:
+        - Action: "sqs:sendmessage"
+          Effect: Allow
+          Resource: "arn:aws:sqs:*:*:*"
+
+build:
+  esbuild:
+    bundle: true
+    minify: true
+    exclude:
+      - "@aws-sdk/*"
+
+functions:
+  Sender:
+    handler: src/sender/index.handler
+    environment:
+      SQS_QUEUE_URL: !Ref SQSElement
+    events:
+      - http:
+          path: /start
+          method: post
+
+  Receiver:
+    handler: src/receiver/index.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - SQSElement
+              - Arn
+    timeout: 300
+
+resources:
+  Resources:
+    SQSElement:
+      Type: AWS::SQS::Queue
+      Properties: 
+        QueueName: ${self:service}-${self:provider.stage}-sqs
+  

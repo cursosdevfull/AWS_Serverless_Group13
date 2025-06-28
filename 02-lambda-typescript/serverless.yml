@@ -1,0 +1,12 @@
+org: sergiohidalgocaceres
+app: cursosdev
+
+service: functions-typescript
+
+provider:
+  name: aws
+  runtime: nodejs22.x
+
+functions:
+  RegisterUser:
+    handler: src/index.handler

@@ -1,0 +1,42 @@
+org: sergiohidalgocaceres
+app: v1
+service: appointment
+
+provider:
+  name: aws
+  runtime: nodejs22.x
+  stage: ${opt:stage, "dev"}
+  iam: 
+    role:
+      statements:
+        - Action: lambda:InvokeFunction
+          Effect: Allow
+          Resource: "arn:aws:lambda:*:*:function:*"  
+
+build:
+  esbuild:
+    bundle: true
+    minify: true
+    exclude:
+      - "@aws-sdk/*"  
+
+functions:
+  appointment:
+    handler: src/appointment/index.handler
+    events:
+      - http:
+          path: /appointment
+          method: post
+    environment:
+      APPOINTMENT_PE: ${self:service}-${self:provider.stage}-appointment-pe
+      APPOINTMENT_CO: ${self:service}-${self:provider.stage}-appointment-co
+      APPOINTMENT_MX: ${self:service}-${self:provider.stage}-appointment-mx
+
+  appointment-pe:
+    handler: src/appointment-pe/index.handler
+
+  appointment-mx:
+    handler: src/appointment-mx/index.handler
+
+  appointment-co:
+    handler: src/appointment-co/index.handler

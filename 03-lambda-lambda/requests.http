@@ -1,0 +1,7 @@
+post https://5tt9ubr977.execute-api.us-east-1.amazonaws.com/prd/user
+Content-Type: application/json
+
+{
+  "name": "John Doe",
+  "email": "john.doe@email.com"
+}

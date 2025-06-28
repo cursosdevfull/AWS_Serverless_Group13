@@ -1,0 +1,20 @@
+{
+  "name": "03-lambda-lambda",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@aws-sdk/client-lambda": "^3.839.0",
+    "znv": "^0.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.6"
+  }
+}
