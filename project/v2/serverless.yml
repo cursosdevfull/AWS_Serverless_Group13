@@ -1,0 +1,80 @@
+org: sergiohidalgocaceres
+app: v2
+service: appointment
+
+provider:
+  name: aws
+  runtime: nodejs22.x
+  stage: ${opt:stage, "dev"}
+  iam: 
+    role:
+      statements:
+        - Action: sqs:sendmessage
+          Effect: Allow
+          Resource: "arn:aws:sqs:*:*:*"  
+
+build:
+  esbuild:
+    bundle: true
+    minify: true
+    exclude:
+      - "@aws-sdk/*"  
+
+functions:
+  appointment:
+    handler: src/appointment/index.handler
+    events:
+      - http:
+          path: /appointment
+          method: post
+    environment:
+      SQS_PE_URL: !Ref SQSPE
+      SQS_CO_URL: !Ref SQSCO
+      SQS_MX_URL: !Ref SQSMX
+
+  appointment-pe:
+    handler: src/appointment-pe/index.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - SQSPE
+              - Arn          
+
+  appointment-mx:
+    handler: src/appointment-mx/index.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - SQSMX
+              - Arn     
+
+  appointment-co:
+    handler: src/appointment-co/index.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - SQSCO
+              - Arn     
+
+resources:
+  Resources:
+    SQSPE:
+      Type: AWS::SQS::Queue
+      Properties: 
+        QueueName: ${self:service}-${self:provider.stage}-sqs-pe
+        VisibilityTimeout: 300
+
+    SQSCO:
+      Type: AWS::SQS::Queue
+      Properties: 
+        QueueName: ${self:service}-${self:provider.stage}-sqs-co
+        VisibilityTimeout: 300
+
+    SQSMX:
+      Type: AWS::SQS::Queue
+      Properties: 
+        QueueName: ${self:service}-${self:provider.stage}-sqs-mx
+        VisibilityTimeout: 300        

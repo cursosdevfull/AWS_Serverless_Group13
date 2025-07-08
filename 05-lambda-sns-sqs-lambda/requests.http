@@ -1,0 +1,8 @@
+post https://yhf4xbnf4g.execute-api.us-east-1.amazonaws.com/dev/origin
+Content-Type: application/json
+
+{
+  "name": "Sergio",
+  "email": "sergio@email.com",
+  "countryISO": "PE"
+}

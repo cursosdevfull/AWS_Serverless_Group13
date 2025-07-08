@@ -1,0 +1,87 @@
+org: sergiohidalgocaceres
+app: cursosdev
+
+service: lambda-sns-sqs-lambda
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  stage: ${opt:stage, "dev"}
+  iam:
+    role:
+      statements:
+        - Action: SNS:Publish
+          Effect: Allow
+          Resource: !Ref SnsTopic
+
+build:
+  esbuild:
+    bundle: true
+    minify: false
+    exclude:
+      - "@aws-sdk/*"
+
+functions:
+  sender:
+    handler: src/sender/index.handler
+    events:
+      - http:
+          path: /origin
+          method: post
+    environment:
+      TOPIC_ARN: !Ref SnsTopic
+
+  receiver:
+    handler: src/receiver/index.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - SQSReceiver
+              - Arn
+     
+resources:
+  Resources:
+    SQSReceiver:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-${self:provider.stage}-sqs
+    
+    SnsTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: ${self:service}-${self:provider.stage}-topic
+        DisplayName: "Topic created as example"
+
+    SubscriptionSqs:
+      Type: AWS::SNS::Subscription
+      Properties:
+        Protocol: sqs
+        Endpoint:
+          Fn::GetAtt:
+            - SQSReceiver
+            - Arn
+        TopicArn:
+          Ref: SnsTopic
+        RawMessageDelivery: true
+        FilterPolicy:
+          countryISO:
+            - PE
+        FilterPolicyScope: MessageBody
+
+    PolicySqs:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        Queues:
+          - !Ref SQSReceiver
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: sqs:sendmessage
+              Resource: !GetAtt SQSReceiver.Arn
+              Principal: "*"
+              Condition:
+                ArnEquals:
+                  aws:SourceArn: !Ref SnsTopic
+    
