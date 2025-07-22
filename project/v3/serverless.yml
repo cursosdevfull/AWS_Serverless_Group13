@@ -1,0 +1,180 @@
+org: sergiohidalgocaceres
+app: v3
+service: appointment
+
+provider:
+  name: aws
+  runtime: nodejs22.x
+  stage: ${opt:stage, "dev"}
+  iam: 
+    role:
+      statements:
+        - Action: SNS:Publish
+          Effect: Allow
+          Resource: !Ref SnsTopic
+
+build:
+  esbuild:
+    bundle: true
+    minify: true
+    exclude:
+      - "@aws-sdk/*"  
+
+functions:
+  appointment:
+    handler: src/appointment/index.handler
+    events:
+      - http:
+          path: /appointment
+          method: post
+    environment:
+      TOPIC_ARN: !Ref SnsTopic
+
+  appointment-pe:
+    handler: src/appointment-pe/index.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - SQSPE
+              - Arn          
+
+  appointment-mx:
+    handler: src/appointment-mx/index.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - SQSMX
+              - Arn     
+
+  appointment-co:
+    handler: src/appointment-co/index.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - SQSCO
+              - Arn     
+
+resources:
+  Resources:
+    SnsTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: ${self:service}-${self:provider.stage}-topic
+        DisplayName: "Topic created as example"
+
+    SQSPE:
+      Type: AWS::SQS::Queue
+      Properties: 
+        QueueName: ${self:service}-${self:provider.stage}-sqs-pe
+        VisibilityTimeout: 300
+
+    SQSCO:
+      Type: AWS::SQS::Queue
+      Properties: 
+        QueueName: ${self:service}-${self:provider.stage}-sqs-co
+        VisibilityTimeout: 300
+
+    SQSMX:
+      Type: AWS::SQS::Queue
+      Properties: 
+        QueueName: ${self:service}-${self:provider.stage}-sqs-mx
+        VisibilityTimeout: 300        
+
+    SubscriptionSqsPe:
+      Type: AWS::SNS::Subscription
+      Properties:
+        Protocol: sqs
+        Endpoint:
+          Fn::GetAtt:
+            - SQSPE
+            - Arn
+        TopicArn:
+          Ref: SnsTopic
+        RawMessageDelivery: true
+        FilterPolicy:
+          countryISO:
+            - PE
+        FilterPolicyScope: MessageBody
+
+    PolicySqsPe:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        Queues:
+          - !Ref SQSPE
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: sqs:sendmessage
+              Resource: !GetAtt SQSPE.Arn
+              Principal: "*"
+              Condition:
+                ArnEquals:
+                  aws:SourceArn: !Ref SnsTopic     
+
+    SubscriptionSqsCo:
+      Type: AWS::SNS::Subscription
+      Properties:
+        Protocol: sqs
+        Endpoint:
+          Fn::GetAtt:
+            - SQSCO
+            - Arn
+        TopicArn:
+          Ref: SnsTopic
+        RawMessageDelivery: true
+        FilterPolicy:
+          countryISO:
+            - CO
+        FilterPolicyScope: MessageBody
+
+    PolicySqsCo:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        Queues:
+          - !Ref SQSCO
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: sqs:sendmessage
+              Resource: !GetAtt SQSCO.Arn
+              Principal: "*"
+              Condition:
+                ArnEquals:
+                  aws:SourceArn: !Ref SnsTopic   
+
+    SubscriptionSqsMx:
+      Type: AWS::SNS::Subscription
+      Properties:
+        Protocol: sqs
+        Endpoint:
+          Fn::GetAtt:
+            - SQSMX
+            - Arn
+        TopicArn:
+          Ref: SnsTopic
+        RawMessageDelivery: true
+        FilterPolicy:
+          countryISO:
+            - MX
+        FilterPolicyScope: MessageBody
+
+    PolicySqsMx:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        Queues:
+          - !Ref SQSMX
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: sqs:sendmessage
+              Resource: !GetAtt SQSMX.Arn
+              Principal: "*"
+              Condition:
+                ArnEquals:
+                  aws:SourceArn: !Ref SnsTopic                                         

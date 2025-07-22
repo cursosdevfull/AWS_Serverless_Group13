@@ -1,0 +1,8 @@
+post https://0f791jpi3a.execute-api.us-east-1.amazonaws.com/dev/appointment
+Content-Type: application/json
+
+{
+    "patientId": 12345,
+    "scheduleId": 67890,
+    "countryISO": "CO"
+}

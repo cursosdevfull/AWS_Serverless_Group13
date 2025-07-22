@@ -1,0 +1,21 @@
+post https://ajlmiuiwvd.execute-api.us-east-1.amazonaws.com/dev/register
+Content-Type: application/json
+
+{
+  "email": "testuser@example.com",
+  "password": "testpassword",
+  "name": "Test User"
+}
+
+###
+post https://ajlmiuiwvd.execute-api.us-east-1.amazonaws.com/dev/login
+Content-Type: application/json
+
+{
+  "email": "testuser@example.com",
+  "password": "testpassword"
+}
+
+###
+get https://ajlmiuiwvd.execute-api.us-east-1.amazonaws.com/dev/client
+Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiVGVzdCBVc2VyIiwiaWF0IjoxNzUyNzIxMDUyLCJleHAiOjE3NTI3MjQ2NTJ9.4QThEEAT5Jw96Lh1Ubu0DApwfj1pMwyfksWVjT7o5Mw

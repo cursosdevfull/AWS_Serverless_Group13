@@ -1,0 +1,66 @@
+org: sergiohidalgocaceres
+app: cursosdev
+
+service: lambda-dynamodb
+
+frameworkVersion: '4'
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:Scan
+          Resource:
+            Fn::GetAtt:
+              - UserTable
+              - Arn
+
+functions:
+  producer:
+    handler: src/producer/index.handler
+    events:
+      - http:
+          path: /producer
+          method: post    
+    environment:
+      TABLE_NAME: !Ref UserTable
+
+  reader:
+    handler: src/reader/index.handler
+    events:
+      - http:
+          path: /reader
+          method: post    
+    environment:
+      TABLE_NAME: !Ref UserTable      
+
+  filter:
+    handler: src/filter/index.handler
+    events:
+      - http:
+          path: /filter/{id}
+          method: get   
+    environment:
+      TABLE_NAME: !Ref UserTable   
+
+resources:
+  Resources:
+    UserTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: "id"
+            AttributeType: "S"
+          - AttributeName: "email"
+            AttributeType: "S"
+        KeySchema:
+          - AttributeName: "id"
+            KeyType: "HASH"
+          - AttributeName: "email"
+            KeyType: "RANGE"
+        BillingMode: "PAY_PER_REQUEST"

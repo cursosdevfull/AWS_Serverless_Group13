@@ -1,0 +1,6 @@
+post https://t3gdqz1d83.execute-api.us-east-1.amazonaws.com/dev/producer
+Content-Type: application/json
+
+{
+    "message": "error"
+}

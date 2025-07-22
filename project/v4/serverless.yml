@@ -1,0 +1,375 @@
+org: sergiohidalgocaceres
+app: v4
+service: appointment
+
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  stage: ${opt:stage, "dev"}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action: 
+            - sqs:sendmessage
+          Resource: 
+            - Fn::GetAtt:
+                - SQSAppointment
+                - Arn              
+        - Action: SNS:Publish
+          Effect: Allow
+          Resource: !Ref SnsAppointment
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:Scan
+            - dynamodb:UpdateItem
+            - dynamodb:Query
+          Resource:
+            - Fn::GetAtt:
+                - AppointmentTable
+                - Arn          
+            - Fn::GetAtt:
+                - AppointmentPETable
+                - Arn          
+            - Fn::GetAtt:
+                - AppointmentCOTable
+                - Arn          
+            - Fn::GetAtt:
+                - AppointmentMXTable
+                - Arn     
+            - Fn::GetAtt:
+                - HelpDeskTable
+                - Arn
+            - Fn::GetAtt:
+                - PatientTable
+                - Arn
+            - Fn::Sub:
+                - "${TableArn}/index/*"
+                - TableArn: !GetAtt AppointmentTable.Arn     
+        - Effect: Allow
+          Action:
+            - s3:GetObject
+            - s3:GetObjectVersion
+          Resource:
+            - "arn:aws:s3:::*/*"
+
+functions:
+  appointment:
+    handler: src/appointment/index.handler
+    events:
+      - http:
+          path: /appointment
+          method: post
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - SQSAppointment
+              - Arn      
+    environment:
+      TOPIC_ARN: !Ref SnsAppointment
+      TABLE_NAME: !Ref AppointmentTable      
+
+  appointment-pe:
+    handler: src/appointment-pe/index.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - SQSPE
+              - Arn
+    environment:
+      TABLE_NAME: !Ref AppointmentPETable   
+      QUEUE_URL: !Ref SQSAppointment
+
+  appointment-co:
+    handler: src/appointment-co/index.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - SQSCO
+              - Arn   
+    environment:
+      TABLE_NAME: !Ref AppointmentCOTable      
+      QUEUE_URL: !Ref SQSAppointment
+
+  appointment-mx:
+    handler: src/appointment-mx/index.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - SQSMX
+              - Arn   
+    environment:
+      TABLE_NAME: !Ref AppointmentMXTable      
+      QUEUE_URL: !Ref SQSAppointment
+
+  help-desk:
+    handler: src/help-desk/index.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - SQSDLQ
+              - Arn      
+    environment:
+      TABLE_NAME: !Ref HelpDeskTable
+  
+  report-queued:
+    handler: src/report-queued/index.handler
+    events:
+      - schedule: "cron(0/1 * * * ? *)"
+    environment:
+      TABLE_NAME: !Ref AppointmentTable
+  
+  import-patients:
+    handler: src/import-patients/index.handler
+    events:
+      - s3:
+          bucket: ${self:service}-${self:provider.stage}-csv-imports-bucket
+          event: s3:ObjectCreated:*
+          rules:
+            - suffix: .csv
+    environment:
+      TABLE_NAME: !Ref PatientTable
+
+resources:
+  Resources:
+    SnsAppointment:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: ${self:service}-${self:provider.stage}-topic-appointment
+        DisplayName: "Topic appointment"
+
+    SQSDLQ:
+      Type: AWS::SQS::Queue
+      Properties: 
+        QueueName: ${self:service}-${self:provider.stage}-dlq-sqs
+        VisibilityTimeout: 10        
+
+    SQSPE:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-${self:provider.stage}-sqs-pe
+        VisibilityTimeout: 10        
+        RedrivePolicy:
+          deadLetterTargetArn:
+            Fn::GetAtt:
+              - SQSDLQ
+              - Arn
+          maxReceiveCount: 1        
+
+    SQSCO:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-${self:provider.stage}-sqs-co
+        VisibilityTimeout: 10        
+        RedrivePolicy:
+          deadLetterTargetArn:
+            Fn::GetAtt:
+              - SQSDLQ
+              - Arn
+          maxReceiveCount: 1  
+
+    SQSMX:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-${self:provider.stage}-sqs-mx
+        VisibilityTimeout: 10        
+        RedrivePolicy:
+          deadLetterTargetArn:
+            Fn::GetAtt:
+              - SQSDLQ
+              - Arn
+          maxReceiveCount: 1        
+
+    SQSAppointment:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-${self:provider.stage}-sqs-appointment       
+
+    SubscriptionSqsPE:
+      Type: AWS::SNS::Subscription
+      Properties:
+        Protocol: sqs
+        Endpoint:
+          Fn::GetAtt:
+            - SQSPE
+            - Arn
+        TopicArn:
+          Ref: SnsAppointment
+        RawMessageDelivery: true
+        FilterPolicy:
+          countryISO:
+            - PE
+        FilterPolicyScope: MessageBody                      
+
+    PolicySqsPE:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        Queues:
+          - !Ref SQSPE
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: sqs:sendmessage
+              Resource: !GetAtt SQSPE.Arn
+              Principal: "*"
+              Condition:
+                ArnEquals:
+                  aws:SourceArn: !Ref SnsAppointment
+
+    SubscriptionSqsCO:
+      Type: AWS::SNS::Subscription
+      Properties:
+        Protocol: sqs
+        Endpoint:
+          Fn::GetAtt:
+            - SQSCO
+            - Arn
+        TopicArn:
+          Ref: SnsAppointment
+        RawMessageDelivery: true
+        FilterPolicy:
+          countryISO:
+            - CO
+        FilterPolicyScope: MessageBody                      
+
+    PolicySqsCO:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        Queues:
+          - !Ref SQSCO
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: sqs:sendmessage
+              Resource: !GetAtt SQSCO.Arn
+              Principal: "*"
+              Condition:
+                ArnEquals:
+                  aws:SourceArn: !Ref SnsAppointment   
+
+    SubscriptionSqsMX:
+      Type: AWS::SNS::Subscription
+      Properties:
+        Protocol: sqs
+        Endpoint:
+          Fn::GetAtt:
+            - SQSMX
+            - Arn
+        TopicArn:
+          Ref: SnsAppointment
+        RawMessageDelivery: true
+        FilterPolicy:
+          countryISO:
+            - MX
+        FilterPolicyScope: MessageBody                      
+
+    PolicySqsMX:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        Queues:
+          - !Ref SQSMX
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: sqs:sendmessage
+              Resource: !GetAtt SQSMX.Arn
+              Principal: "*"
+              Condition:
+                ArnEquals:
+                  aws:SourceArn: !Ref SnsAppointment
+
+    AppointmentTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: "id"
+            AttributeType: "S"
+          - AttributeName: "status"
+            AttributeType: "S"
+          - AttributeName: "createdAt"
+            AttributeType: "S"
+        KeySchema:
+          - AttributeName: "id"
+            KeyType: "HASH"
+        GlobalSecondaryIndexes:
+          - IndexName: "StatusCreatedAtIndex"
+            KeySchema:
+              - AttributeName: "status"
+                KeyType: "HASH"
+              - AttributeName: "createdAt"
+                KeyType: "RANGE"
+            Projection:
+              ProjectionType: "ALL"
+        BillingMode: "PAY_PER_REQUEST"
+
+    AppointmentPETable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: "id"
+            AttributeType: "S"
+        KeySchema:
+          - AttributeName: "id"
+            KeyType: "HASH"
+        BillingMode: "PAY_PER_REQUEST"        
+
+    AppointmentCOTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: "id"
+            AttributeType: "S"
+        KeySchema:
+          - AttributeName: "id"
+            KeyType: "HASH"
+        BillingMode: "PAY_PER_REQUEST"
+
+    AppointmentMXTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: "id"
+            AttributeType: "S"
+        KeySchema:
+          - AttributeName: "id"
+            KeyType: "HASH"
+        BillingMode: "PAY_PER_REQUEST"        
+
+    HelpDeskTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: "id"
+            AttributeType: "S"
+        KeySchema:
+          - AttributeName: "id"
+            KeyType: "HASH"
+        BillingMode: "PAY_PER_REQUEST"             
+
+    PatientTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: "patientId"
+            AttributeType: "S"
+        KeySchema:
+          - AttributeName: "patientId"
+            KeyType: "HASH"
+        BillingMode: "PAY_PER_REQUEST"  
+
+    PatientCsvBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:service}-${self:provider.stage}-csv-imports-bucket
+        Tags:
+          - Key: Project
+            Value: CursosDev

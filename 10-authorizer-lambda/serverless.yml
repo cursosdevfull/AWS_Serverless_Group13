@@ -1,0 +1,64 @@
+org: sergiohidalgocaceres
+app: cursosdev
+
+service: authorizer-lambda
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  stage: ${opt:stage,"dev"}
+  iam:
+    role:
+      statements:
+        - Effect: "Allow"
+          Action:
+            - secretsmanager:GetSecretValue
+            - ssm:*
+          Resource: "*"
+
+functions:
+  register:
+    handler: src/register/index.handler
+    events:
+      - http:
+          path: /register
+          method: post
+
+  login:
+    handler: src/login/index.handler
+    events:
+      - http:
+          path: /login
+          method: post    
+    environment:
+      SECRET_KEY_TOKEN: !Ref SecretKeyToken
+      EXPIRATION_TOKEN: !Ref ExpirationToken
+
+  client:
+    handler: src/client/index.handler
+    events:
+      - http:
+          path: /client
+          method: get 
+          cors: true
+          authorizer: authorizer
+
+  authorizer:
+    handler: src/authorizer/index.handler
+    environment:
+      SECRET_KEY_TOKEN: SecretKeyToken     
+
+resources:
+  Resources:
+    ExpirationToken:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: expirationToken
+        Value: "1h"
+        Type: String
+
+    SecretKeyToken:
+      Type: 'AWS::SecretsManager::Secret'
+      Properties:
+        Name: SecretKeyToken
+        SecretString: "{'key': 'UGKO6Q79cUut9HXuf34dEOX'}"   

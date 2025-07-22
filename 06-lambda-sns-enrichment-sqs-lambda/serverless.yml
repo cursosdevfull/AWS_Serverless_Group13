@@ -1,0 +1,137 @@
+org: sergiohidalgocaceres
+app: cursosdev
+
+service: lambda-sns-enrichment-sqs-lambda
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  stage: ${opt:stage, "dev"}
+  iam:
+    role:
+      statements:
+        - Action: SNS:Publish
+          Effect: Allow
+          Resource: !Ref SnsTopic
+        - Action: SNS:Publish
+          Effect: Allow
+          Resource: !Ref SnsProcessTopic
+
+
+build:
+  esbuild:
+    bundle: true
+    minify: false
+    exclude:
+      - "@aws-sdk/*"
+
+functions:
+  producer:
+    handler: src/producer/index.handler
+    events:
+      - http:
+          path: /origin
+          method: post
+    environment:
+      TOPIC_ARN: !Ref SnsTopic
+
+  enrichment:
+    handler: src/enrichment/index.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - SQSEnrichment
+              - Arn
+    environment:
+      TOPIC_ARN: !Ref SnsProcessTopic
+
+  consumer:
+    handler: src/consumer/index.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - SQSConsumer
+              - Arn
+     
+resources:
+  Resources:
+    SQSConsumer:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-${self:provider.stage}-sqs
+    
+    SQSEnrichment:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-${self:provider.stage}-enrichement-sqs    
+
+    SnsTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: ${self:service}-${self:provider.stage}-topic
+        DisplayName: "Topic created as example"
+
+    SubscriptionSqs:
+      Type: AWS::SNS::Subscription
+      Properties:
+        Protocol: sqs
+        Endpoint:
+          Fn::GetAtt:
+            - SQSEnrichment
+            - Arn
+        TopicArn:
+          Ref: SnsTopic
+        RawMessageDelivery: true
+
+    PolicySqs:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        Queues:
+          - !Ref SQSEnrichment
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: sqs:sendmessage
+              Resource: !GetAtt SQSEnrichment.Arn
+              Principal: "*"
+              Condition:
+                ArnEquals:
+                  aws:SourceArn: !Ref SnsTopic
+    
+    SnsProcessTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: ${self:service}-${self:provider.stage}-process-topic
+        DisplayName: "Topic created to process information"    
+
+    SubscriptionProcessSqs:
+      Type: AWS::SNS::Subscription
+      Properties:
+        Protocol: sqs
+        Endpoint:
+          Fn::GetAtt:
+            - SQSConsumer
+            - Arn
+        TopicArn:
+          Ref: SnsProcessTopic
+        RawMessageDelivery: true
+
+    PolicyProcessSqs:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        Queues:
+          - !Ref SQSConsumer
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: sqs:sendmessage
+              Resource: !GetAtt SQSConsumer.Arn
+              Principal: "*"
+              Condition:
+                ArnEquals:
+                  aws:SourceArn: !Ref SnsProcessTopic
+          

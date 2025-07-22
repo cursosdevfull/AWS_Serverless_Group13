@@ -1,0 +1,9 @@
+post https://roeqjqkz52.execute-api.us-east-1.amazonaws.com/dev/producer
+Content-Type: application/json
+
+{
+    "name": "John Doe",
+    "email": "john.doe@example.com",
+    "scheduleId": "12345",
+    "patientId": "67890"
+}

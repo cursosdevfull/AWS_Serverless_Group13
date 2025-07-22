@@ -1,0 +1,8 @@
+post https://0iw6x65l8e.execute-api.us-east-1.amazonaws.com/dev/appointment
+Content-Type: application/json
+
+{
+    "scheduleId": "700e8400-e29b-41d4-a716-446655440000",
+    "patientId": "700e8400-e29b-41d4-a716-446655440000",
+    "countryISO": "CO"
+}

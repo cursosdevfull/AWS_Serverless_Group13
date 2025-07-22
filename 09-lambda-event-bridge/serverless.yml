@@ -1,0 +1,80 @@
+org: sergiohidalgocaceres
+app: cursosdev
+
+service: lambda-event-bridge
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - events:PutEvents
+          Resource: "*"
+
+functions:
+  producer:
+    handler: src/producer/index.handler
+    environment:
+      EVENT_BUS_NAME: !Ref MyEventBus
+    events:
+      - http:
+          path: /producer
+          method: post
+    
+
+  consumer:
+    handler: src/consumer/index.handler
+
+resources:
+  Resources:
+    MyEventBus:
+      Type: AWS::Events::EventBus
+      Properties:
+        Name: myEventBus
+
+    MyRule:
+      Type: AWS::Events::Rule
+      Properties:
+        EventBusName: !Ref MyEventBus
+        EventPattern:
+          source:
+            - "web-app"
+            - "mobile-app"
+            - "desktop-app"
+          "detail-type":
+            - "appointment-create"
+            - "appointment-cancel"
+        Targets:
+          - Arn:
+              Fn::GetAtt:
+                - ConsumerLambdaFunction
+                - Arn
+            Id: "ConsumerCustom"
+            RoleArn:
+              Fn::GetAtt:
+                - EventBridgeRole
+                - Arn
+
+    EventBridgeRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: events.amazonaws.com
+              Action: "sts:AssumeRole"
+        Path: /
+        Policies:
+          - PolicyName: InvokeLambda
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: "Allow"
+                  Action: 
+                    - "lambda:InvokeFunction"
+                  Resource: "*"

@@ -1,0 +1,98 @@
+org: sergiohidalgocaceres
+app: cursosdev
+
+service: lambda-sqs-dlq-lambda
+
+provider:
+  name: aws
+  runtime: nodejs22.x
+  stage: ${opt:stage, "dev"}
+  iam:
+    role:
+      statements:
+        - Action: "sqs:sendmessage"
+          Effect: Allow
+          Resource: "arn:aws:sqs:*:*:*"
+
+
+functions:
+  producer:
+    handler: src/producer/index.handler
+    environment:
+      SQS_QUEUE_URL: !Ref SQS
+    events:
+      - http:
+          path: /producer
+          method: post    
+    
+  consumer:
+    handler: src/consumer/index.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - SQS
+              - Arn
+          # batchSize: 3
+          # maximumBatchingWindow: 15
+          functionResponseType: ReportBatchItemFailures
+
+  dlq:
+    handler: src/dlq/index.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - SQSDLQ
+              - Arn
+
+resources:
+  Resources:
+    SQSDLQ:
+      Type: AWS::SQS::Queue
+      Properties: 
+        QueueName: ${self:service}-${self:provider.stage}-dlq-sqs
+        VisibilityTimeout: 10   
+
+    SQS:
+      Type: AWS::SQS::Queue
+      Properties: 
+        QueueName: ${self:service}-${self:provider.stage}-sqs
+        VisibilityTimeout: 10
+        RedrivePolicy:
+          deadLetterTargetArn:
+            Fn::GetAtt:
+              - SQSDLQ
+              - Arn
+          maxReceiveCount: 1
+
+    AlarmTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: alarm-topic
+        DisplayName: alarm-topic
+
+    AlarmTopicSubscription:
+      Type: AWS::SNS::Subscription
+      Properties:
+        Protocol: email
+        Endpoint: sergiohidalgocaceres@gmail.com
+        TopicArn: !Ref AlarmTopic
+
+    Alarm:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: alarm-error
+        Namespace: AWS/SQS
+        MetricName: NumberOfMessagesReceived
+        Dimensions:
+          - Name: QueueName
+            Value: ${self:service}-${self:provider.stage}-dlq-sqs
+        Statistic: Sum
+        Period: 10
+        EvaluationPeriods: 1
+        Threshold: 1
+        ComparisonOperator: GreaterThanThreshold
+        TreatMissingData: notBreaching
+        AlarmActions:
+          - !Ref AlarmTopic

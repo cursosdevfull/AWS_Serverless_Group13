@@ -1,0 +1,20 @@
+post https://wm0t2fy9e1.execute-api.us-east-1.amazonaws.com/dev/producer
+Content-Type: application/json
+
+{
+  "name": "John Doe",
+  "email": "john.doe@example.com",
+  "age": 30
+}
+
+###
+post https://wm0t2fy9e1.execute-api.us-east-1.amazonaws.com/dev/reader
+Content-Type: application/json
+
+{
+  "id": "4ab5d74d-858f-46c5-aca3-714f3eb21224"
+}
+
+###
+get https://wm0t2fy9e1.execute-api.us-east-1.amazonaws.com/dev/filter/4ab5d74d-858f-46c5-aca3-714f3eb21224
+
