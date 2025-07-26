@@ -1,0 +1,21 @@
+<div class="container">
+    <form [formGroup]="fg">
+        <h1>Register</h1>
+        <mat-form-field appearance="outline">
+            <mat-label> Email </mat-label>
+            <input matInput formControlName="email" required />
+            <mat-error>Email is required</mat-error>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+            <mat-label> Password </mat-label>
+            <input matInput formControlName="password" type="password" required />
+            <mat-error>Password is required</mat-error>
+        </mat-form-field>
+        <button mat-flat-button color="primary" type="button" (click)="signUp()">
+            REGISTER
+        </button>
+        <div>
+            <a routerLink="/login">Do you have an account?</a>
+        </div>
+    </form>
+</div>

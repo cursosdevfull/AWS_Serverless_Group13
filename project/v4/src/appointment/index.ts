@@ -93,12 +93,23 @@ export const handler = async (event: APIGatewayProxyEvent | SQSEvent): Promise<A
 
         return {
             statusCode: 200,
-            body: event.body ? event.body : JSON.stringify({
-                message: 'Hello from the appointment service!',
+            body: JSON.stringify({
+                message: 'Appointment created successfully',
+                data: {
+                    id,
+                    scheduleId,
+                    patientId,
+                    countryISO,
+                    status,
+                    createdAt: new Date().toISOString()
+                }
             }),
+            headers: {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Credentials': true,
+                'Access-Control-Allow-Methods': 'OPTIONS,POST,GET,PUT,DELETE',
+                'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Requested-With',
+            },
         };
     }
-
-
-
 }

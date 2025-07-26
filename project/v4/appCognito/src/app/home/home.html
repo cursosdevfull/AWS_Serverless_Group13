@@ -1,0 +1,32 @@
+<div class="container">
+    <div class="home">
+        <h1>Home</h1>
+        <form [formGroup]="fg">
+            <mat-form-field appearance="outline">
+                <mat-label>PatientId</mat-label>
+                <input matInput formControlName="patientId" required />
+                <mat-error>patientId is required</mat-error>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+                <mat-label>ScheduleId</mat-label>
+                <input matInput formControlName="scheduleId" required />
+                <mat-error>scheduleId is required</mat-error>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+                <mat-label>CountryISO</mat-label>
+                <input matInput formControlName="countryISO" required />
+                <mat-hint>PE, CO, MX</mat-hint>
+                <mat-error>countryISO is required</mat-error>
+            </mat-form-field>
+            <button mat-flat-button color="primary" (click)="createAppointment()" type="button">
+                CREATE APPOINTMENT
+            </button>
+        </form>
+
+        <code>
+      <pre>{{ result | json }}</pre>
+    </code>
+
+        <button mat-stroked-button (click)="signOut()">SIGNOUT</button>
+    </div>
+</div>

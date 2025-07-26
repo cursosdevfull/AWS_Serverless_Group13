@@ -1,0 +1,280 @@
+Resources:
+  SnsAppointment:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: ${self:service}-${self:provider.stage}-topic-appointment
+      DisplayName: "Topic appointment"
+
+  SQSDLQ:
+    Type: AWS::SQS::Queue
+    Properties: 
+      QueueName: ${self:service}-${self:provider.stage}-dlq-sqs
+      VisibilityTimeout: 10        
+
+  SQSPE:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: ${self:service}-${self:provider.stage}-sqs-pe
+      VisibilityTimeout: 10        
+      RedrivePolicy:
+        deadLetterTargetArn:
+          Fn::GetAtt:
+            - SQSDLQ
+            - Arn
+        maxReceiveCount: 1        
+
+  SQSCO:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: ${self:service}-${self:provider.stage}-sqs-co
+      VisibilityTimeout: 10        
+      RedrivePolicy:
+        deadLetterTargetArn:
+          Fn::GetAtt:
+            - SQSDLQ
+            - Arn
+        maxReceiveCount: 1  
+
+  SQSMX:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: ${self:service}-${self:provider.stage}-sqs-mx
+      VisibilityTimeout: 10        
+      RedrivePolicy:
+        deadLetterTargetArn:
+          Fn::GetAtt:
+            - SQSDLQ
+            - Arn
+        maxReceiveCount: 1        
+
+  SQSAppointment:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: ${self:service}-${self:provider.stage}-sqs-appointment       
+
+  SubscriptionSqsPE:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: sqs
+      Endpoint:
+        Fn::GetAtt:
+          - SQSPE
+          - Arn
+      TopicArn:
+        Ref: SnsAppointment
+      RawMessageDelivery: true
+      FilterPolicy:
+        countryISO:
+          - PE
+      FilterPolicyScope: MessageBody                      
+
+  PolicySqsPE:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref SQSPE
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: sqs:sendmessage
+            Resource: !GetAtt SQSPE.Arn
+            Principal: "*"
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref SnsAppointment
+
+  SubscriptionSqsCO:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: sqs
+      Endpoint:
+        Fn::GetAtt:
+          - SQSCO
+          - Arn
+      TopicArn:
+        Ref: SnsAppointment
+      RawMessageDelivery: true
+      FilterPolicy:
+        countryISO:
+          - CO
+      FilterPolicyScope: MessageBody                      
+
+  PolicySqsCO:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref SQSCO
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: sqs:sendmessage
+            Resource: !GetAtt SQSCO.Arn
+            Principal: "*"
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref SnsAppointment   
+
+  SubscriptionSqsMX:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: sqs
+      Endpoint:
+        Fn::GetAtt:
+          - SQSMX
+          - Arn
+      TopicArn:
+        Ref: SnsAppointment
+      RawMessageDelivery: true
+      FilterPolicy:
+        countryISO:
+          - MX
+      FilterPolicyScope: MessageBody                      
+
+  PolicySqsMX:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref SQSMX
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: sqs:sendmessage
+            Resource: !GetAtt SQSMX.Arn
+            Principal: "*"
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref SnsAppointment
+
+  AppointmentTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: "id"
+          AttributeType: "S"
+        - AttributeName: "status"
+          AttributeType: "S"
+        - AttributeName: "createdAt"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "id"
+          KeyType: "HASH"
+      GlobalSecondaryIndexes:
+        - IndexName: "StatusCreatedAtIndex"
+          KeySchema:
+            - AttributeName: "status"
+              KeyType: "HASH"
+            - AttributeName: "createdAt"
+              KeyType: "RANGE"
+          Projection:
+            ProjectionType: "ALL"
+      BillingMode: "PAY_PER_REQUEST"
+
+  AppointmentPETable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: "id"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "id"
+          KeyType: "HASH"
+      BillingMode: "PAY_PER_REQUEST"        
+
+  AppointmentCOTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: "id"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "id"
+          KeyType: "HASH"
+      BillingMode: "PAY_PER_REQUEST"
+
+  AppointmentMXTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: "id"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "id"
+          KeyType: "HASH"
+      BillingMode: "PAY_PER_REQUEST"        
+
+  HelpDeskTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: "id"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "id"
+          KeyType: "HASH"
+      BillingMode: "PAY_PER_REQUEST"             
+
+  PatientTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: "patientId"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "patientId"
+          KeyType: "HASH"
+      BillingMode: "PAY_PER_REQUEST"  
+
+  PatientUpdateBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: ${self:service}-${self:provider.stage}-csv-imports-bucket
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+
+  AppointmentCognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: ${self:service}-${self:provider.stage}-cognito-user-pool
+      UsernameAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      EmailVerificationSubject: "Validation required"
+      EmailVerificationMessage: "Gracias por registrarte en nuestra plataforma. Por favor verifica tu correo usando el siguiente código: {####}"
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: false
+          RequireUppercase: false
+          RequireNumbers: false
+          RequireSymbols: false
+          TemporaryPasswordValidityDays: 0
+
+  AppointmentCognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: ${self:service}-${self:provider.stage}-userpool-client
+      UserPoolId: !Ref AppointmentCognitoUserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_SRP_AUTH        
+
+  AppointmentCognitoAuthorizer:
+    Type: AWS::ApiGateway::Authorizer
+    Properties:
+      Name: ${self:service}-${self:provider.stage}-authorizerCourse
+      IdentitySource: method.request.header.Authorization
+      RestApiId: !Ref ApiGatewayRestApi
+      Type: COGNITO_USER_POOLS 
+      ProviderARNs:
+        - Fn::GetAtt:
+            - AppointmentCognitoUserPool
+            - Arn          

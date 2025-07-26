@@ -1,0 +1,50 @@
+name: aws
+runtime: nodejs20.x
+stage: ${opt:stage, "dev"}
+iam:
+  role:
+    statements:
+      - Effect: Allow
+        Action: 
+          - sqs:sendmessage
+        Resource: 
+          - Fn::GetAtt:
+              - SQSAppointment
+              - Arn              
+      - Action: SNS:Publish
+        Effect: Allow
+        Resource: !Ref SnsAppointment
+      - Effect: Allow
+        Action:
+          - dynamodb:PutItem
+          - dynamodb:Scan
+          - dynamodb:UpdateItem
+          - dynamodb:Query
+        Resource:
+          - Fn::GetAtt:
+              - AppointmentTable
+              - Arn          
+          - Fn::GetAtt:
+              - AppointmentPETable
+              - Arn          
+          - Fn::GetAtt:
+              - AppointmentCOTable
+              - Arn          
+          - Fn::GetAtt:
+              - AppointmentMXTable
+              - Arn     
+          - Fn::GetAtt:
+              - HelpDeskTable
+              - Arn
+          - Fn::GetAtt:
+              - PatientTable
+              - Arn
+          - Fn::Sub:
+              - "${TableArn}/index/*"
+              - TableArn: !GetAtt AppointmentTable.Arn     
+      - Effect: Allow
+        Action:
+          - s3:GetObject
+          - s3:GetObjectVersion
+        Resource:
+          - "arn:aws:s3:::*/*"

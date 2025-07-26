@@ -1,0 +1,85 @@
+appointment:
+  handler: src/appointment/index.handler
+  events:
+    - http:
+        path: /appointment
+        method: post
+        cors:
+          origin: "*"
+        authorizer:
+          type: COGNITO_USER_POOLS
+          authorizerId: !Ref AppointmentCognitoAuthorizer
+    - sqs:
+        arn:
+          Fn::GetAtt:
+            - SQSAppointment
+            - Arn      
+  environment:
+    TOPIC_ARN: !Ref SnsAppointment
+    TABLE_NAME: !Ref AppointmentTable
+
+appointment-pe:
+  handler: src/appointment-pe/index.handler
+  events:
+    - sqs:
+        arn:
+          Fn::GetAtt:
+            - SQSPE
+            - Arn
+  environment:
+    TABLE_NAME: !Ref AppointmentPETable   
+    QUEUE_URL: !Ref SQSAppointment
+
+appointment-co:
+  handler: src/appointment-co/index.handler
+  events:
+    - sqs:
+        arn:
+          Fn::GetAtt:
+            - SQSCO
+            - Arn   
+  environment:
+    TABLE_NAME: !Ref AppointmentCOTable      
+    QUEUE_URL: !Ref SQSAppointment
+
+appointment-mx:
+  handler: src/appointment-mx/index.handler
+  events:
+    - sqs:
+        arn:
+          Fn::GetAtt:
+            - SQSMX
+            - Arn   
+  environment:
+    TABLE_NAME: !Ref AppointmentMXTable      
+    QUEUE_URL: !Ref SQSAppointment
+
+help-desk:
+  handler: src/help-desk/index.handler
+  events:
+    - sqs:
+        arn:
+          Fn::GetAtt:
+            - SQSDLQ
+            - Arn      
+  environment:
+    TABLE_NAME: !Ref HelpDeskTable
+
+report-queued:
+  handler: src/report-queued/index.handler
+  events:
+    - schedule: "cron(0/1 * * * ? *)"
+  environment:
+    TABLE_NAME: !Ref AppointmentTable
+
+import-patients:
+  handler: src/import-patients/index.handler
+  events:
+    - s3:
+        bucket: !Ref PatientUpdateBucket
+        existing: true
+        event: s3:ObjectCreated:*
+        rules:
+          - suffix: .csv
+  environment:
+    TABLE_NAME: !Ref PatientTable

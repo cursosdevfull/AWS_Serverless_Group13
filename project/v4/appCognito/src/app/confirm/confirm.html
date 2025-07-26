@@ -1,0 +1,18 @@
+<div class="container">
+    <form [formGroup]="fg">
+        <h1>Confirm signUp</h1>
+        <mat-form-field appearance="outline">
+            <mat-label> Email </mat-label>
+            <input matInput formControlName="email" required />
+            <mat-error>Email is required</mat-error>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+            <mat-label> Code </mat-label>
+            <input matInput formControlName="code" required />
+            <mat-error>Code is required</mat-error>
+        </mat-form-field>
+        <button mat-flat-button color="primary" type="button" (click)="confirmSignUp()">
+            CONFIRM SIGNUP
+        </button>
+    </form>
+</div>
